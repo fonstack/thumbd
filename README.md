@@ -230,3 +230,9 @@ includes the one SwiftPM builds from `Package.swift`. To get around it:
 | `thumbd is already running` | Another instance is active. Stop it, or `launchctl bootout gui/$(id -u)/local.thumbd`. |
 | Config change has no effect | Restart: `launchctl kickstart -k gui/$(id -u)/local.thumbd`. |
 | Something else | Run `launchctl bootout gui/$(id -u)/local.thumbd`, then `thumbd run --debug` and watch what arrives. |
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 Carlos Fontes
