@@ -189,6 +189,8 @@ test("an empty config gets the defaults") {
 test("the default config file decodes") {
     let c = try decode(Config.defaultJSON)
     expect(c.gestures.count == 4)
+    expect(c.gestures["left"] == "ctrl+left" && c.gestures["right"] == "ctrl+right")
+    expect(c.buttons == [0x00C4: "f12"])
     expect(Config.unknownKeys(in: Data(Config.defaultJSON.utf8)).isEmpty)
 }
 

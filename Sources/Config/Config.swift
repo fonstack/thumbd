@@ -31,12 +31,14 @@ public struct Config {
       "gestures": {
         "up": "ctrl+alt+cmd+f2",
         "down": "ctrl+alt+cmd+f3",
-        "left": "ctrl+alt+cmd+f4",
-        "right": "ctrl+alt+cmd+f5"
+        "left": "ctrl+left",
+        "right": "ctrl+right"
       },
       "threshold": 50,
       "button": "0x00C3",
-      "buttons": {},
+      "buttons": {
+        "0x00C4": "f12"
+      },
       "devices": []
     }
 
