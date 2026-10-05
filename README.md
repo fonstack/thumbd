@@ -193,7 +193,7 @@ includes the one SwiftPM builds from `Package.swift`. To get around it:
 
 | Rule type | Covers | Catch |
 |---|---|---|
-| **SigningID** `TEAMID:carlosfontes.thumbd` | Every future build | Needs a **Developer ID** certificate. Santa ignores this rule for Apple Development certs. |
+| **SigningID** `TEAMID:local.thumbd` | Every future build | Needs a **Developer ID** certificate. Santa ignores this rule for Apple Development certs. |
 | **Certificate** (leaf SHA-256) | Anything signed with that cert | Needs a new rule when the cert is renewed. |
 | CDHash | One build | A new rule for every rebuild. |
 

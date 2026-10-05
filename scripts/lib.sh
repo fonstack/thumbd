@@ -8,12 +8,12 @@
 #                                           (keeps working when the certificate is renewed)
 #   self-signed certificate "thumbd-signing"
 #   ad-hoc ("-")
-# The signing identifier is $THUMBD_SIGNING_ID (default carlosfontes.thumbd). With an Apple
+# The signing identifier is $THUMBD_SIGNING_ID (default local.thumbd). With an Apple
 # certificate, Santa sees it as the SigningID "<TeamID>:<identifier>".
 
 # Library modules in dependency order.
 MODULES=(Diagnostics HIDTransport HIDPP Gestures Actions Config)
-SIGNING_ID="${THUMBD_SIGNING_ID:-carlosfontes.thumbd}"
+SIGNING_ID="${THUMBD_SIGNING_ID:-local.thumbd}"
 
 # build_modules OUT OPT MODULE...: compiles each module into OUT as a static library plus its
 # .swiftmodule, in the order given (dependencies first). OPT is -O or -Onone.
