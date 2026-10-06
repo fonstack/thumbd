@@ -6,6 +6,7 @@ public enum Feature {
     public static let deviceName: UInt16 = 0x0005
     public static let reprogControlsV4: UInt16 = 0x1B04
     public static let wirelessDeviceStatus: UInt16 = 0x1D4B
+    public static let thumbWheel: UInt16 = 0x2150
 
     public static func name(_ id: UInt16) -> String { names[id] ?? "?" }
 

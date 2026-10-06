@@ -12,7 +12,7 @@
 # certificate, Santa sees it as the SigningID "<TeamID>:<identifier>".
 
 # Library modules in dependency order.
-MODULES=(Diagnostics HIDTransport HIDPP Gestures Actions Config)
+MODULES=(Diagnostics HIDTransport HIDPP Gestures Actions Scrolling Config)
 SIGNING_ID="${THUMBD_SIGNING_ID:-local.thumbd}"
 
 # build_modules OUT OPT MODULE...: compiles each module into OUT as a static library plus its

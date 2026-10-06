@@ -14,6 +14,7 @@ Control, desktop switching… It's written in Swift and has no dependencies.
 | ⬅️ | Hold it and move left | `⌃←` (desktop to the left) |
 | ➡️ | Hold it and move right | `⌃→` (desktop to the right) |
 | 🔘 | Press the button below the wheel | `F12` |
+| 🛞 | Scroll either wheel | your speed and thumb-wheel direction |
 
 Tested with an MX Master 3 over Bluetooth on Apple Silicon.
 
@@ -64,6 +65,11 @@ Edit `~/.config/thumbd/config.json`. It's created with these defaults:
   "buttons": {
     "0x00C4": "f12"
   },
+  "scroll": {
+    "verticalSpeed": 1.0,
+    "horizontalSpeed": 1.0,
+    "invertHorizontal": false
+  },
   "devices": []
 }
 ```
@@ -75,7 +81,19 @@ Edit `~/.config/thumbd/config.json`. It's created with these defaults:
 | `threshold` | How far to move before it counts as a gesture, in raw sensor units (50 ≈ 1.3 mm). |
 | `button` | The button that does gestures. `0x00C3` is the thumb button. |
 | `buttons` | Extra buttons: button ID → shortcut, fired on press. A remapped button loses its normal function. |
+| `scroll.verticalSpeed` / `scroll.horizontalSpeed` | Wheel speed multiplier, `0.1`–`10` (`1` = as macOS does it, `2` = twice as fast). |
+| `scroll.invertHorizontal` | Flip the thumb wheel's direction, independently of macOS's natural scrolling. |
 | `devices` | Only manage mice whose name contains one of these. Empty = all. |
+
+**About scrolling:**
+
+- **Direction** is set in the mouse itself over HID++ (`THUMB_WHEEL`, `0x2150`), so it only
+  affects the MX's thumb wheel.
+- **Speed** is applied on the Mac with an event tap on scroll events.
+  - macOS doesn't say which mouse a scroll event came from, so the speed applies to **every
+    mouse wheel**.
+  - Trackpads and the Magic Mouse aren't affected.
+  - If thumbd stops, scrolling goes back to normal straight away.
 
 **Shortcuts** are written as modifiers + key, e.g. `cmd+shift+space`, `ctrl+left` or `⌃⌥⌘F1`:
 

@@ -5,6 +5,7 @@ import Foundation
 import Gestures
 import HIDPP
 import HIDTransport
+import Scrolling
 
 /// Ties the layers together: discovers devices, diverts the buttons every time one appears
 /// and turns their events into keyboard shortcuts.
@@ -36,9 +37,11 @@ final class Daemon {
         /// Extra buttons diverted on this device, and the ones currently pressed.
         let extraButtons: [UInt16]
         var pressedExtras: Set<UInt16> = []
+        /// Set when the thumb wheel's direction was applied, so it can be restored on exit.
+        let thumbWheel: ThumbWheel?
 
         init(device: HIDPPDevice, name: String, reprog: ReprogControls, wirelessStatusIndex: UInt8?,
-             button: GestureButton, rawXY: Bool, extraButtons: [UInt16]) {
+             button: GestureButton, rawXY: Bool, extraButtons: [UInt16], thumbWheel: ThumbWheel?) {
             self.device = device
             self.name = name
             self.reprog = reprog
@@ -46,6 +49,7 @@ final class Daemon {
             self.button = button
             self.rawXY = rawXY
             self.extraButtons = extraButtons
+            self.thumbWheel = thumbWheel
         }
     }
 
@@ -76,6 +80,7 @@ final class Daemon {
     private var signalSources: [DispatchSourceSignal] = []
     private var healthTimer: DispatchSourceTimer?
     private var power: SystemPower?
+    private var scrollTap: ScrollTap?
 
     init(config: Config, bindings: Bindings) {
         self.config = config
@@ -91,6 +96,12 @@ final class Daemon {
             Log.warn("IOHIDManagerOpen: \(describeIOReturn(status))")
         }
         startHealthChecks()
+        if config.scroll.changesSpeed {
+            scrollTap = ScrollTap(vertical: config.scroll.verticalSpeed, horizontal: config.scroll.horizontalSpeed)
+            if scrollTap == nil {
+                Log.warn("couldn't create the scroll event tap (Accessibility permission?); wheel speed unchanged")
+            }
+        }
         Log.info("thumbd running: button \(hex16(config.button)): \(bindings.summary). Waiting for Logitech devices…")
         dispatchMain()
     }
@@ -200,16 +211,31 @@ final class Daemon {
                 try reprog.setReporting(for: extra, divert: true)
                 extraButtons.append(extra)
             }
+            let thumbWheel = applyThumbWheelDirection(device, name: name)
             let wirelessStatus = try? device.featureIndex(of: Feature.wirelessDeviceStatus)
             managed[key] = Managed(device: device, name: name, reprog: reprog,
                                    wirelessStatusIndex: wirelessStatus,
                                    button: GestureButton(cid: cid, threshold: config.threshold),
-                                   rawXY: rawXY, extraButtons: extraButtons)
+                                   rawXY: rawXY, extraButtons: extraButtons, thumbWheel: thumbWheel)
             Log.info("✓ \(name): button \(hex16(cid)) diverted (\(reporting)): \(bindings.summary)")
             return .managed
         } catch {
             Log.error("  error configuring device #\(hex8(device.index)): \(error) (will retry)")
             return .failed
+        }
+    }
+
+    /// Sets the thumb wheel's direction from the config. Applied even when it's `false`, so
+    /// turning the option off takes effect without a mouse reset. A problem here only costs
+    /// the direction setting, so it's logged and setup carries on.
+    private func applyThumbWheelDirection(_ device: HIDPPDevice, name: String) -> ThumbWheel? {
+        do {
+            guard let wheel = try ThumbWheel(device: device) else { return nil }
+            try wheel.setInverted(config.scroll.invertHorizontal)
+            return wheel
+        } catch {
+            Log.warn("  \(name): couldn't set the thumb wheel direction: \(error)")
+            return nil
         }
     }
 
@@ -239,7 +265,8 @@ final class Daemon {
     }
 
     /// Re-diverts devices that silently lost their configuration, and retries devices whose
-    /// setup failed. Quiet unless it actually has to fix something.
+    /// setup failed. Quiet unless it actually has to fix something. The thumb wheel direction
+    /// is lost together with the diversion, so re-configuring restores it too.
     private func healthCheck(reason: String) {
         for m in managed.values {
             let timeout = m.device.timeout
@@ -390,6 +417,9 @@ final class Daemon {
                 try m.reprog.setReporting(for: config.button, divert: false, rawXY: false)
                 for cid in m.extraButtons {
                     try m.reprog.setReporting(for: cid, divert: false)
+                }
+                if config.scroll.invertHorizontal {
+                    try m.thumbWheel?.setInverted(false)
                 }
             } catch {
                 Log.warn("\(m.name): couldn't undo the diversion: \(error)")

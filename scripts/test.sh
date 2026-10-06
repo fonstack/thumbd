@@ -11,7 +11,7 @@ source scripts/lib.sh
 
 if [[ "${1:-}" == "--swiftc" ]]; then
   OUT=.build/swiftc-tests
-  TESTED=(Gestures Actions Config)
+  TESTED=(Gestures Actions Scrolling Config)
   rm -rf "$OUT" && mkdir -p "$OUT"
   build_modules "$OUT" -Onone "${TESTED[@]}"
   swiftc -Onone -swift-version 5 -module-name thumbd_tests -I "$OUT" -L "$OUT" \

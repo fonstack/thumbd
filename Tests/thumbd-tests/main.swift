@@ -4,6 +4,7 @@ import Config
 import CoreGraphics
 import Foundation
 import Gestures
+import Scrolling
 
 // Minimal harness: `test` groups checks, `expect` records a failure without stopping.
 
@@ -124,6 +125,40 @@ test("reset forgets a press in progress") {
     expect(b.update(pressedControls: []) == nil)
 }
 
+// MARK: ScrollScaler
+
+test("a factor of 1 leaves deltas unchanged") {
+    var s = ScrollScaler(factor: 1)
+    expect([3, -1, 0, 7].map { s.scale($0) } == [3, -1, 0, 7])
+}
+
+test("speeding up multiplies deltas") {
+    var s = ScrollScaler(factor: 2)
+    expect(s.scale(1) == 2)
+    expect(s.scale(-3) == -6)
+}
+
+test("slowing down carries the fraction so slow wheels still scroll") {
+    var s = ScrollScaler(factor: 0.5)
+    expect([1, 1, 1, 1].map { s.scale($0) } == [0, 1, 0, 1])
+    var t = ScrollScaler(factor: 1.5)
+    expect([1, 1].map { t.scale($0) } == [1, 2], "1.5 + 1.5 = 3 over two notches")
+}
+
+test("changing direction drops the carried fraction") {
+    var s = ScrollScaler(factor: 0.5)
+    expect(s.scale(1) == 0)
+    expect(s.scale(-1) == 0, "the +0.5 from before mustn't cancel this notch out")
+    expect(s.scale(-1) == -1)
+}
+
+test("zero stays zero and keeps the remainder") {
+    var s = ScrollScaler(factor: 0.5)
+    _ = s.scale(1)
+    expect(s.scale(0) == 0)
+    expect(s.scale(1) == 1)
+}
+
 // MARK: KeyShortcut
 
 test("named modifiers and F-keys") {
@@ -186,11 +221,34 @@ test("an empty config gets the defaults") {
     expect(c.gestures.isEmpty && c.buttons.isEmpty && c.devices.isEmpty)
 }
 
+test("scroll settings default to unchanged") {
+    let c = try decode("{}")
+    expect(c.scroll == ScrollSettings())
+    expect(!c.scroll.changesSpeed && !c.scroll.invertHorizontal)
+}
+
+test("scroll settings decode, and any key can be left out") {
+    let c = try decode(#"{"scroll": {"verticalSpeed": 1.5, "invertHorizontal": true}}"#)
+    expect(c.scroll.verticalSpeed == 1.5)
+    expect(c.scroll.horizontalSpeed == 1)
+    expect(c.scroll.invertHorizontal)
+    expect(c.scroll.changesSpeed)
+    expect(!(try decode(#"{"scroll": {"invertHorizontal": true}}"#).scroll.changesSpeed),
+           "inverting alone doesn't need the event tap")
+    expectThrows({ _ = try decode(#"{"scroll": {"verticalSpeed": "fast"}}"#) })
+}
+
+test("typos inside scroll are reported") {
+    let data = Data(#"{"scroll": {"verticalSpeed": 2, "invertHorisontal": true}}"#.utf8)
+    expect(Config.unknownKeys(in: data) == ["scroll.invertHorisontal"])
+}
+
 test("the default config file decodes") {
     let c = try decode(Config.defaultJSON)
     expect(c.gestures.count == 4)
     expect(c.gestures["left"] == "ctrl+left" && c.gestures["right"] == "ctrl+right")
     expect(c.buttons == [0x00C4: "f12"])
+    expect(c.scroll == ScrollSettings(), "defaults keep scrolling as macOS does it")
     expect(Config.unknownKeys(in: Data(Config.defaultJSON.utf8)).isEmpty)
 }
 

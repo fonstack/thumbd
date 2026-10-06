@@ -12,6 +12,11 @@ import Foundation
 ///   "buttons": {                other buttons: CID → shortcut on press (no gestures)
 ///     "0x00C4": "f12"
 ///   },
+///   "scroll": {
+///     "verticalSpeed": 1.0,     multiplier for mouse-wheel scrolling (1 = unchanged)
+///     "horizontalSpeed": 1.0,
+///     "invertHorizontal": false flip the thumb wheel's direction (set in the mouse itself)
+///   },
 ///   "devices": []               names (or part of them) as shown by `thumbd list`; empty = all compatible
 /// }
 public struct Config {
@@ -20,6 +25,7 @@ public struct Config {
     public var threshold: Int
     public var button: UInt16
     public var buttons: [UInt16: String]
+    public var scroll: ScrollSettings
     public var devices: [String]
 
     public static let defaultPath = FileManager.default.homeDirectoryForCurrentUser
@@ -38,6 +44,11 @@ public struct Config {
       "button": "0x00C3",
       "buttons": {
         "0x00C4": "f12"
+      },
+      "scroll": {
+        "verticalSpeed": 1.0,
+        "horizontalSpeed": 1.0,
+        "invertHorizontal": false
       },
       "devices": []
     }
@@ -61,12 +72,41 @@ public struct Config {
         return (try JSONDecoder().decode(Config.self, from: data), created, unknownKeys(in: data))
     }
 
-    /// Top-level keys thumbd doesn't know. Usually typos ("gesture" for "gestures"), which
-    /// the decoder would otherwise ignore without a word.
+    /// Keys thumbd doesn't know, at the top level and inside "scroll". Usually typos
+    /// ("gesture" for "gestures"), which the decoder would otherwise ignore without a word.
     public static func unknownKeys(in data: Data) -> [String] {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
         let known = Set(Keys.allCases.map(\.rawValue))
-        return object.keys.filter { !known.contains($0) }.sorted()
+        var unknown = object.keys.filter { !known.contains($0) }
+        if let scroll = object[Keys.scroll.rawValue] as? [String: Any] {
+            let knownScroll = Set(ScrollSettings.Keys.allCases.map(\.rawValue))
+            unknown += scroll.keys.filter { !knownScroll.contains($0) }.map { "scroll.\($0)" }
+        }
+        return unknown.sorted()
+    }
+}
+
+/// Wheel settings. Speeds scale line-based (mouse wheel) scrolling on the Mac side; the
+/// thumb wheel's direction is a setting of the mouse itself.
+public struct ScrollSettings: Equatable {
+    public var verticalSpeed: Double = 1
+    public var horizontalSpeed: Double = 1
+    public var invertHorizontal = false
+
+    public init() {}
+
+    /// Whether the speeds need the scroll event tap at all.
+    public var changesSpeed: Bool { verticalSpeed != 1 || horizontalSpeed != 1 }
+}
+
+extension ScrollSettings: Decodable {
+    enum Keys: String, CodingKey, CaseIterable { case verticalSpeed, horizontalSpeed, invertHorizontal }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: Keys.self)
+        verticalSpeed = try c.decodeIfPresent(Double.self, forKey: .verticalSpeed) ?? 1
+        horizontalSpeed = try c.decodeIfPresent(Double.self, forKey: .horizontalSpeed) ?? 1
+        invertHorizontal = try c.decodeIfPresent(Bool.self, forKey: .invertHorizontal) ?? false
     }
 }
 
@@ -99,7 +139,7 @@ public enum ConfigError: Error, CustomStringConvertible {
 }
 
 extension Config: Decodable {
-    enum Keys: String, CodingKey, CaseIterable { case tap, gestures, threshold, button, buttons, devices }
+    enum Keys: String, CodingKey, CaseIterable { case tap, gestures, threshold, button, buttons, scroll, devices }
 
     /// "0x00C4" (hex) or "196" (decimal).
     static func parseCID(_ text: String) -> UInt16? {
@@ -113,6 +153,7 @@ extension Config: Decodable {
         gestures = try c.decodeIfPresent([String: String].self, forKey: .gestures) ?? [:]
         threshold = try c.decodeIfPresent(Int.self, forKey: .threshold) ?? 50
         devices = try c.decodeIfPresent([String].self, forKey: .devices) ?? []
+        scroll = try c.decodeIfPresent(ScrollSettings.self, forKey: .scroll) ?? ScrollSettings()
         if let number = try? c.decode(Int.self, forKey: .button) {
             guard let cid = UInt16(exactly: number) else { throw ConfigError.invalidButton("\(number)") }
             button = cid

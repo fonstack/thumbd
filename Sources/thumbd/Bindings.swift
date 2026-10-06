@@ -10,6 +10,7 @@ struct Bindings {
         case badShortcut(String, Error)
         case duplicateButton(UInt16)
         case badThreshold(Int)
+        case badScrollSpeed(String, Double)
 
         var description: String {
             switch self {
@@ -17,13 +18,19 @@ struct Bindings {
             case .badShortcut(let key, let error): return "\"\(key)\": \(error)"
             case .duplicateButton(let cid): return "\(hex16(cid)) is in both \"button\" and \"buttons\""
             case .badThreshold(let value): return "\"threshold\" must be greater than 0 (got \(value))"
+            case .badScrollSpeed(let key, let value):
+                return "\"scroll.\(key)\" must be between \(Bindings.scrollSpeedRange.lowerBound) and \(Bindings.scrollSpeedRange.upperBound) (got \(value))"
             }
         }
     }
 
+    /// Wheel speeds outside this range are almost certainly a typo.
+    static let scrollSpeedRange = 0.1...10.0
+
     let tap: KeyShortcut
     let swipes: [GestureButton.Direction: KeyShortcut]
     let extras: [UInt16: KeyShortcut]
+    let scroll: ScrollSettings
 
     init(config: Config) throws {
         do {
@@ -54,11 +61,21 @@ struct Bindings {
         }
         self.extras = extras
         guard config.threshold > 0 else { throw Problem.badThreshold(config.threshold) }
+        for (key, speed) in [("verticalSpeed", config.scroll.verticalSpeed),
+                             ("horizontalSpeed", config.scroll.horizontalSpeed)]
+        where !Self.scrollSpeedRange.contains(speed) {
+            throw Problem.badScrollSpeed(key, speed)
+        }
+        scroll = config.scroll
     }
 
     var summary: String {
         let gestures = GestureButton.Direction.allCases.compactMap { d in swipes[d].map { "\(d.arrow) \($0)" } }
         let buttons = extras.keys.sorted().map { "\(hex16($0)) \(extras[$0]!)" }
-        return (["tap \(tap)"] + gestures + buttons).joined(separator: ", ")
+        var wheel: [String] = []
+        if scroll.verticalSpeed != 1 { wheel.append("scroll ↕ ×\(scroll.verticalSpeed)") }
+        if scroll.horizontalSpeed != 1 { wheel.append("scroll ↔ ×\(scroll.horizontalSpeed)") }
+        if scroll.invertHorizontal { wheel.append("↔ inverted") }
+        return (["tap \(tap)"] + gestures + buttons + wheel).joined(separator: ", ")
     }
 }
